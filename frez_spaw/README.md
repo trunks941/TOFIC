@@ -1,55 +1,88 @@
-# Szlif spawu frezem Ø12 — start 3 mm od ścianki
+# Frez: start 3 mm od osi, krok średnicy I073, koniec D120
 
-Zmiana dotyczy wklejonego `OBLICZ_SZLIF_TROJNIKA`, czyli trybu szlifu spawu, dla `I035=30` i TCP 17 na osi freza. Frez nie ma modelowanej kompensacji zużycia. Inne tryby obróbki w starej paczce nie są tą zmianą dostosowywane do freza.
+Ta wersja zastępuje wcześniejszy wariant 15 obiegów ze startem 3 mm od ścianki. Użytkownik potwierdził nowy start: **oś freza ma znaleźć się 3 mm od osi otworu**, po czym pełne obiegi mają zwiększać średnicę szlifu o `I073` do granicy wyliczonej w `D120`.
 
-## Ustalenia i parametry
+Potrzebne są **oba** pliki:
 
-- Frez Ø12 mm: program ustawia `I070=120` (jednostka zmiennej: 0,1 mm).
-- Średnica zewnętrzna: `I071` w 0,1 mm; grubość jednej ścianki: `I074` w 0,1 mm.
-- Przesunięcie początkowe 3 mm jest promieniowe: odległość krawędzi freza od nominalnej wewnętrznej ścianki, w stronę osi otworu.
-- Zachowano 15 obiegów istniejącego `SZLIF_SPAWU_TROJNIKA`: licznik `I120` od 1 do 15. Między pierwszym i ostatnim obiegiem są 14 przyrostów, po około 0,214 mm.
-- `D103`, `D104`, `D105` to dotychczasowe korekty X/Y/Z z `TROJNIK_TEST`.
-- Wynik `D074` jest promieniem toru osi freza w 0,001 mm. Nie jest średnicą ani pozostałym zużyciem.
+- `OBLICZ_SZLIF_TROJNIKA.JBI` — inicjalizacja wymiarów i wyliczanie punktów;
+- `SZLIF_SPAWU_TROJNIKA.JBI` — dojazd promieniowy, pełne obiegi i zakończenie przy granicy.
 
-Wzór dla obiegu n, w mm:
+## Zmienne
 
-`R(n) = (średnica_zewnętrzna - 2 × ścianka - średnica_freza) / 2 - 3 + (n - 1) × 3 / 14`
+| Zmienna | Znaczenie i skala |
+|---|---|
+| `I070` | Średnica fizycznego freza, 0,1 mm. Dla freza Ø12 mm ustawić **120**. Program nie nadpisuje tej zmiennej. |
+| `I071` | Średnica zewnętrzna detalu, 0,1 mm. |
+| `I074` | Grubość jednej ścianki, 0,1 mm. |
+| `I073` | Ustawiany przez operatora **przyrost średnicy na pełny obieg**, 0,001 mm. Przykład: **100 = 0,10 mm średnicy**, czyli 0,05 mm promienia. |
+| `D120` | Docelowy **promień toru osi freza**, 0,001 mm. Jest wyliczany z geometrii na początku każdej sztuki, zgodnie z kodem operatora. |
+| `D074` | Aktualny promień toru osi freza, 0,001 mm. Zaczyna od **3000**, czyli 3 mm. |
+| `D121` | Nowa robocza zmienna D: zapamiętany na sztukę krok promienia, czyli `I073 / 2`. W archiwalnych 97 jobach nie znaleziono jej użycia; należy zarezerwować ją również w bieżącym PLC/HMI. |
+| `I120` | Licznik wykonanych/wykonywanych obiegów, zaczyna od 1. Nie jest limitem wymiaru. `I120` i `D120` to osobne zmienne. |
+| `D103–D105` | Dotychczasowe korekty położenia z `TROJNIK_TEST`. |
 
-Dla `I071=269`, `I074=16`: otwór Ø23,7 mm, promień końcowy osi freza 5,85 mm. Obieg 1: 2,85 mm (3 mm od ścianki), obieg 8: 4,35 mm (1,5 mm od ścianki), obieg 15: 5,85 mm (nominalna ścianka).
+Krok `I073` musi być dodatni i parzysty, co najmniej 2. Punkty mają rozdzielczość 0,001 mm na promieniu; podział nieparzystego kroku średnicy przez dwa wymagałby połowy tej jednostki. Wersja zatrzymuje się na `PAUSE` dla takiego kroku, zamiast zaokrąglać go lub ryzykować brak postępu.
 
-Program oblicza promień od nowa na każdym obiegu. `I072`, `I073` i `I075` nie są używane ani zmieniane. Nie nalicza się zużycia, a stary `D074` nie wpływa na wynik. Zachowano potwierdzenie dawnego resetu `B030=0` i `OT#(6)=OFF`.
+`I073` nie jest już wyliczane z `I072`. `I072` i `I075` nie sterują obróbką i nie są modyfikowane. Kompensacja zużycia freza została usunięta.
 
-`D066` służy chwilowo jako obliczenie postępu, a następnie — jak wcześniej — do współrzędnej X. Nie zajęto nowych zmiennych roboczych. Przelicznik `DIV` na D daje rozdzielczość 0,001 mm; możliwe zaokrąglenie kroku trzeba potwierdzić na DX200. Początek i koniec mają dokładne wartości całkowite w tej skali.
+## Geometria i przebieg
 
-## Zastosowanie
-
-1. Zachować aktualną kopię programu z kontrolera.
-2. Podmienić podprogram na `OBLICZ_SZLIF_TROJNIKA.JBI` z tego katalogu, po sprawdzeniu zgodności nagłówka i bieżących układów. Plik jest oparty na archiwalnym nagłówku; korpus uwzględnia podany TOOL 17.
-3. W aktualnym `SZLIF_SPAWU_TROJNIKA` zachować:
+W jednostkach 0,001 mm:
 
 ```text
-FOR I120 START= 1 TO 15 STEP= 1
-    CALL JOB:OBLICZ_SZLIF_TROJNIKA
-    ... istniejące ruchy MOVC ...
-NEXT I120
+D120 = (I071*100 - 2*I074*100 - I070*100) / 2
+D121 = I073 / 2
+D074(n) = MIN(3000 + (n-1)*D121, D120)
 ```
 
-`I120` musi być numerem aktualnego obiegu. Przed samodzielnym wywołaniem obliczeń należy ustawić go w zakresie 1–15. Nie ustawiać go na 1 wewnątrz podprogramu, bo zablokuje to przyrost promienia. Zmiana liczby obiegów wymaga również zmiany dzielnika 14 i kontroli zakresu w obliczeniach.
+`D120` zachowuje znaczenie promienia z wklejonego kodu operatora, gdzie występuje `DIV D120 2`. Nie porównujemy do niego średnicy. Średnica obrabianego otworu na danym obiegu wynika z dwukrotnego promienia toru osi i średnicy freza.
 
-Jeśli modyfikujesz tylko kod wklejony w rozmowie, `BLOK_DO_PODMIANY.txt` zastępuje fragment od `NOP` do linii przed komentarzem `TABELA PARAMETROW DLA SREDNIC`. Dalsza część ustawiania punktów pozostaje zgodna z podanym kodem. `zmiany.diff` pokazuje pełne porównanie względem wersji z TOOL 17.
+1. Program ruchowy ustawia `I120=1` i wywołuje obliczenia. Wymiary i krok są pobierane na nowo, bez uzależnienia od przycisku resetu `B030`.
+2. Oś freza dojeżdża ruchem `MOVL` do `P010` na promieniu 3 mm od skorygowanej osi otworu. Punkt ma również zachowaną wysokość obróbki.
+3. Wykonywany jest pełny obieg: `P010 → P013 → P012 → P011 → P010`.
+4. Jeżeli promień jest mniejszy niż `D120`, licznik `I120` rośnie, obliczany jest kolejny promień i wykonywany dojazd promieniowy do nowego `P010`.
+5. Promień ostatniego obiegu jest ograniczany do `D120`. Po wykonaniu **jednego pełnego obiegu na tym promieniu** program kończy się. Ostatni przyrost może być mniejszy od nominalnego kroku.
 
-Program wykonuje `PAUSE`, gdy `I120` jest poza zakresem 1–15 albo nie ma dodatniego promienia początkowego przy odsunięciu 3 mm. Po wznowieniu wraca do kontroli parametrów. To pauza programu i nie zmienia stanu wyjścia wrzeciona.
+Promień wyliczamy z numeru obiegu, a nie przez ślepe dodawanie do poprzedniego `D074`. Powtórzenie samych obliczeń dla tego samego `I120` nie powoduje kolejnego zwiększenia promienia.
 
-## Integracja z robotem
+Wymiary i krok są zapamiętywane na początku sztuki. Zmiana `I073` w trakcie pracy obowiązuje od następnej sztuki, zgodnie z wcześniej ustaloną zasadą. Nie nadpisywać roboczych `D074`, `D120`, `D121`, `I120` ani punktów P z PLC/HMI w trakcie cyklu.
 
-Archiwalne `OBLICZENIA_KROKOW_TROJNIKI` ustawia TOOL 18 dla punktów dojazdu P000–P009; dotyczy to również odjazdu. TOOL 17 i TOOL 18 mają różne definicje TCP w archiwum. Bieżący dojazd i odjazd należy zweryfikować dla freza i TCP 17. Nie przeliczano automatycznie tych trajektorii z nieaktualnego zrzutu.
+## Przykład dla obecnej receptury
 
-Dodatkowo trzeba sprawdzić wejście na pierwszy obieg, przejścia pomiędzy obiegami MOVC oraz wysokość obróbki. Nominalny promień punktów nie dowodzi, że interpolacja i PL dadzą dokładnie tę samą powierzchnię. Dotychczasowe korekty i wysokość `D032=19000` pozostają w kodzie; wymagają potwierdzenia dla nowego narzędzia.
+`I071=269` (Ø26,9 mm), `I074=16` (ścianka 1,6 mm), `I070=120` (frez Ø12 mm):
 
-## Sprawdzenie offline
+- otwór nominalny: Ø23,7 mm;
+- docelowy promień osi freza `D120=5850`, czyli 5,85 mm;
+- pierwszy promień osi freza: 3,00 mm, a zewnętrzna obwiednia freza ma wtedy Ø18,00 mm;
+- przy `I073=100` promienie wynoszą 3,00; 3,05; 3,10; …; 5,85 mm — **58 obiegów**;
+- przy `I073=200` ostatni krok jest skrócony: 3,00; 3,10; …; 5,80; 5,85 mm — **30 obiegów**;
+- jeśli `D120=3000`, wykonywany jest jeden obieg na promieniu startowym;
+- jeśli `D120<3000`, program zatrzymuje się przed ruchem, ponieważ frez nie mieści się na wymaganym torze początkowym.
 
-Uruchom: `python frez_spaw/test_promieni.py` z katalogu repozytorium.
+## Zastosowanie i integracja
 
-Model wykonuje instrukcje obliczeniowe z wygenerowanego JBI i sprawdza geometrię, korekty, TOOL 17, wszystkie 15 obiegów, niezależność od dawnych parametrów zużycia oraz odrzucenie błędnych danych. Wynik: 1260 scenariuszy obliczeniowych i 5 przypadków odrzucenia. Szczegóły są w `wyniki_sprawdzenia.json`.
+Zachować bieżące joby z kontrolera i wprowadzić oba pliki tej wersji po sprawdzeniu ich nagłówków. `BLOK_DO_PODMIANY.txt` zawiera część obliczeniową od `NOP` do komentarza `TABELA PARAMETROW DLA SREDNIC`. Sama podmiana obliczeń nie wystarczy, jeśli program ruchowy nadal ma pętlę `FOR ... TO 15`.
 
-To model arytmetyki i fragmentu sterowania, nie kompilator ani symulator DX200. Nie sprawdza importu na kontroler, PLC, kinematyki, kolizji, posuwu, obrotów ani jakości obróbki. Wersja wymaga prób offline/na stanowisku przed użyciem produkcyjnym.
+Dotychczasowe wywołanie z `WYBOR_SZLIFU` pozostaje:
+
+```text
+CALL JOB:SZLIF_SPAWU_TROJNIKA UF#(18)
+```
+
+W programie ruchowym zachowano `SET I020 200` oraz pięć punktów każdego obiegu `MOVC`. Dodano `MOVL P010` przed pierwszym obiegiem i między obiegami. Dojazdy oraz końcowy punkt obiegu mają `PL=0`, aby rozdzielić promieniowy dosuw i zamknięty obieg. Wpływ tych zmian na interpolację, obciążenie i czas wymaga sprawdzenia na kontrolerze.
+
+Ustawianie orientacji, wysokość `D032=19000` i korekty XYZ pochodzą z podanego kodu. TOOL 17 jest używany dla P010–P013. Archiwalne dojazdy i odjazdy P000–P009 korzystają z TOOL 18, którego TCP ma inne wartości; bieżący tor dojazdu/odjazdu trzeba zweryfikować dla freza i TCP 17. Nowe pliki dotyczą trybu spawu i nie zmieniają innych programów szlifu całego trójnika.
+
+Kontrola parametrów wykonuje `PAUSE` przed pierwszym ruchem dla błędnej receptury, kroku lub wymiarów. Pauza nie wyłącza wrzeciona; zachowanie przy przerwaniu i wznowieniu musi odpowiadać konfiguracji stanowiska. Nie dobierano obrotów ani technologicznego posuwu dla freza.
+
+## Sprawdzenie wykonane offline
+
+Uruchomienie z katalogu repozytorium:
+
+```text
+python frez_spaw/test_promieni.py
+```
+
+Model wykonuje instrukcje obu plików i sprawdza pierwszy dojazd na promień 3 mm, kolejność pięciu ruchów kołowych, przyrost średnicy, ograniczenie końcowego kroku, pełny obieg końcowy, brak obiegów ponad granicę, różne kroki i geometrie, restart na nową sztukę, zapamiętanie ustawień i powtórzenie obliczeń. Wynik: **133 poprawne scenariusze oraz 10 przypadków błędnych danych zakończonych pauzą przed ruchem**. Szczegóły w `wyniki_sprawdzenia.json`.
+
+To model arytmetyki i sterowania, nie kompilator INFORM ani symulator DX200. Nie potwierdza importu, kinematyki, rzeczywistej interpolacji MOVC, kolizji, działania PLC ani jakości obróbki. Wersja jest przeznaczona do przeglądu i prób na docelowym kontrolerze/MotoSim.

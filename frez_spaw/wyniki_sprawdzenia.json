@@ -1,0 +1,87 @@
+{
+  "model": "Arithmetic and control-flow subset; not DX200/PLC/kinematics validation",
+  "passing_geometry_cases": 1260,
+  "rejected_invalid_parameter_cases": 5,
+  "nominal_outer_diameter_mm": 26.9,
+  "nominal_wall_mm": 1.6,
+  "cutter_diameter_mm": 12,
+  "tool": 17,
+  "passes": 15,
+  "nominal_passes_truncation_model": [
+    {
+      "obieg": 1,
+      "promien_osi_mm": 2.85,
+      "odstep_krawedzi_od_scianki_mm": 3.0
+    },
+    {
+      "obieg": 2,
+      "promien_osi_mm": 3.064,
+      "odstep_krawedzi_od_scianki_mm": 2.786
+    },
+    {
+      "obieg": 3,
+      "promien_osi_mm": 3.278,
+      "odstep_krawedzi_od_scianki_mm": 2.572
+    },
+    {
+      "obieg": 4,
+      "promien_osi_mm": 3.492,
+      "odstep_krawedzi_od_scianki_mm": 2.358
+    },
+    {
+      "obieg": 5,
+      "promien_osi_mm": 3.707,
+      "odstep_krawedzi_od_scianki_mm": 2.143
+    },
+    {
+      "obieg": 6,
+      "promien_osi_mm": 3.921,
+      "odstep_krawedzi_od_scianki_mm": 1.929
+    },
+    {
+      "obieg": 7,
+      "promien_osi_mm": 4.135,
+      "odstep_krawedzi_od_scianki_mm": 1.715
+    },
+    {
+      "obieg": 8,
+      "promien_osi_mm": 4.35,
+      "odstep_krawedzi_od_scianki_mm": 1.5
+    },
+    {
+      "obieg": 9,
+      "promien_osi_mm": 4.564,
+      "odstep_krawedzi_od_scianki_mm": 1.286
+    },
+    {
+      "obieg": 10,
+      "promien_osi_mm": 4.778,
+      "odstep_krawedzi_od_scianki_mm": 1.072
+    },
+    {
+      "obieg": 11,
+      "promien_osi_mm": 4.992,
+      "odstep_krawedzi_od_scianki_mm": 0.858
+    },
+    {
+      "obieg": 12,
+      "promien_osi_mm": 5.207,
+      "odstep_krawedzi_od_scianki_mm": 0.643
+    },
+    {
+      "obieg": 13,
+      "promien_osi_mm": 5.421,
+      "odstep_krawedzi_od_scianki_mm": 0.429
+    },
+    {
+      "obieg": 14,
+      "promien_osi_mm": 5.635,
+      "odstep_krawedzi_od_scianki_mm": 0.215
+    },
+    {
+      "obieg": 15,
+      "promien_osi_mm": 5.85,
+      "odstep_krawedzi_od_scianki_mm": 0.0
+    }
+  ]
+}
